@@ -15,6 +15,9 @@ bool registerNormalUser(int sd, struct normalUser user1);
 bool registerJointUser(int sd, struct jointUser user1);
 bool loginNormalUser(int sd, struct normalUser user1);
 bool loginJointUser(int sd, struct jointUser user1);
+bool loginAdmin(int sd, struct admin user1);
+bool depositMoney(int sd);
+bool withdrawMoney(int sd);
 struct normalUser viewDetailsNormalUser(int sd);
 struct jointUser viewDetailsJointUser(int sd);
 bool passwordChange(int sd);
@@ -78,7 +81,11 @@ void serverTasks(int sd)
         }
         else
         {
-            // userType = 3 and registerOrLogin = 1
+            struct admin currentUser;
+            read(sd, &currentUser, sizeof(currentUser));
+
+            result = loginAdmin(sd, currentUser);
+            write(sd, &result, sizeof(result));
         }
         if (result)
         {
@@ -86,47 +93,46 @@ void serverTasks(int sd)
         }
     }
 
-    while (1)
+    read(sd, &menuSelect, sizeof(menuSelect));
+    if (userType == 1 || userType == 2)
     {
-        read(sd, &menuSelect, sizeof(menuSelect));
-        if (userType == 1 || userType == 2)
+        switch (menuSelect)
         {
-            switch (menuSelect)
+        case 1:
+            result = depositMoney(sd);
+            write(sd, &result, sizeof(result));
+            break;
+        case 2:
+            result = withdrawMoney(sd);
+            write(sd, &result, sizeof(result));
+            break;
+        case 3:
+            float balance;
+            balance = checkBalance(sd);
+            write(sd, &balance, sizeof(balance));
+            break;
+        case 4:
+            result = passwordChange(sd);
+            write(sd, &result, sizeof(result));
+            break;
+
+        case 5:
+            if (userType == 1)
             {
-            case 1:
-                // depositMoney;
-                break;
-            case 2:
-                // withdrawMoney;
-                break;
-            case 3:
-                float balance;
-                balance = checkBalance(sd);
-                write(sd, &balance, sizeof(balance));
-                break;
-            case 4:
-                result = passwordChange(sd);
-                write(sd, &result, sizeof(result));
-                break;
-
-            case 5:
-                if (userType == 1)
-                {
-                    struct normalUser currentUser;
-                    currentUser = viewDetailsNormalUser(sd);
-                    write(sd, &currentUser, sizeof(currentUser));
-                }
-                else if (userType == 2)
-                {
-                    struct jointUser currentUser;
-                    currentUser = viewDetailsJointUser(sd);
-                    write(sd, &currentUser, sizeof(currentUser));
-                }
-                break;
-
-            default:
-                break;
+                struct normalUser currentUser;
+                currentUser = viewDetailsNormalUser(sd);
+                write(sd, &currentUser, sizeof(currentUser));
             }
+            else if (userType == 2)
+            {
+                struct jointUser currentUser;
+                currentUser = viewDetailsJointUser(sd);
+                write(sd, &currentUser, sizeof(currentUser));
+            }
+            break;
+
+        default:
+            break;
         }
     }
 }
@@ -193,8 +199,6 @@ bool registerJointUser(int sd, struct jointUser user1)
     printf("%s", filePath);
 
     fd = open(filePath, O_RDWR | O_CREAT | O_EXCL, 0774);
-    printf("%d", fd);
-    perror("Error:");
 
     if (fd == -1)
     {
@@ -236,8 +240,6 @@ bool loginNormalUser(int sd, struct normalUser user1)
     printf("%s", filePath);
 
     fd = open(filePath, O_RDWR);
-    printf("%d", fd);
-    perror("Error:");
 
     if (fd == -1)
     {
@@ -278,8 +280,6 @@ bool loginJointUser(int sd, struct jointUser user1)
     printf("%s", filePath);
 
     fd = open(filePath, O_RDWR);
-    printf("%d", fd);
-    perror("Error:");
 
     if (fd == -1)
     {
@@ -296,6 +296,120 @@ bool loginJointUser(int sd, struct jointUser user1)
     }
     else
     {
+        return true;
+    }
+}
+
+bool loginAdmin(int sd, struct admin user1)
+{
+    bool result;
+    int pinConfirm;
+
+    struct admin currentUser;
+
+    char filePath[16] = "admins/";
+    char fileName[11]; // mobileNumber to be used as filename in users directory
+
+    for (int i = 0; i < 10; i++)
+    {
+        // sprintf will store the integers as a string in buffer fileName
+        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
+    }
+
+    strcat(filePath, fileName);
+    printf("%s", filePath);
+
+    fd = open(filePath, O_RDWR);
+
+    if (fd == -1)
+    {
+        // Mobile number unregistered
+        return false;
+    }
+
+    read(fd, &currentUser, sizeof(currentUser));
+    pinConfirm = compareArrays(currentUser.pin, user1.pin, 4);
+
+    if (pinConfirm == 0)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+bool depositMoney(int sd)
+{
+    float addMoney;
+    int readStatus;
+    int writeStatus;
+
+    read(sd, &addMoney, sizeof(addMoney));
+
+    lseek(fd, 0L, SEEK_SET);
+
+    if (userType == 1)
+    {
+        struct normalUser currentUser;
+        readStatus = read(fd, &currentUser, sizeof(currentUser));
+        if (readStatus)
+        {
+            currentUser.balance += addMoney;
+        }
+
+        lseek(fd, (-1) * sizeof(currentUser), SEEK_CUR);
+
+        writeStatus = write(fd, &currentUser, sizeof(currentUser));
+        return true;
+    }
+    else if (userType == 2)
+    {
+        struct jointUser currentUser;
+        readStatus = read(fd, &currentUser, sizeof(currentUser));
+
+        currentUser.balance += addMoney;
+        lseek(fd, 0L, SEEK_SET);
+
+        writeStatus = write(fd, &currentUser, sizeof(currentUser));
+        return true;
+    }
+}
+
+bool withdrawMoney(int sd)
+{
+    float decrementMoney;
+    int readStatus;
+    int writeStatus;
+
+    read(sd, &decrementMoney, sizeof(decrementMoney));
+
+    lseek(fd, 0L, SEEK_SET);
+
+    if (userType == 1)
+    {
+        struct normalUser currentUser;
+        readStatus = read(fd, &currentUser, sizeof(currentUser));
+        if (readStatus)
+        {
+            currentUser.balance -= decrementMoney;
+        }
+
+        lseek(fd, (-1) * sizeof(currentUser), SEEK_CUR);
+
+        writeStatus = write(fd, &currentUser, sizeof(currentUser));
+        return true;
+    }
+    else if (userType == 2)
+    {
+        struct jointUser currentUser;
+        readStatus = read(fd, &currentUser, sizeof(currentUser));
+
+        currentUser.balance -= decrementMoney;
+        lseek(fd, 0L, SEEK_SET);
+
+        writeStatus = write(fd, &currentUser, sizeof(currentUser));
         return true;
     }
 }
@@ -325,16 +439,82 @@ float checkBalance(int sd)
 bool passwordChange(int sd)
 {
     int pin[4];
+    int newPin[4];
+    int confirmPin[4];
     int readStatus;
     int compareResult;
+    int compareNewPin;
 
     lseek(fd, 0L, SEEK_SET);
 
-    readStatus= read(sd, &pin, sizeof(pin));
-    if(userType== 1){
+    read(sd, &pin, sizeof(pin));
+    if (userType == 1)
+    {
         struct normalUser currentUser;
         read(fd, &currentUser, sizeof(currentUser));
-        compareResult= compareArrays(pin, currentUser.pin, 4);        
+        compareResult = compareArrays(pin, currentUser.pin, 4);
+
+        read(sd, &newPin, sizeof(newPin));
+        read(sd, &confirmPin, sizeof(confirmPin));
+
+        compareNewPin = compareArrays(newPin, confirmPin, 4);
+        if (compareResult == 0)
+        {
+            // wrong old pin
+            return false;
+        }
+        else
+        {
+            if (compareNewPin == 0)
+            {
+                // new and confirm doesn't match
+                return false;
+            }
+            else
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    currentUser.pin[i] = newPin[i];
+                }
+                lseek(fd, 0L, SEEK_SET);
+                write(fd, &currentUser, sizeof(currentUser));
+                return true;
+            }
+        }
+    }
+    else if (userType == 2)
+    {
+        struct jointUser currentUser;
+        read(fd, &currentUser, sizeof(currentUser));
+        compareResult = compareArrays(pin, currentUser.pin, 4);
+
+        read(sd, &newPin, sizeof(newPin));
+        read(sd, &confirmPin, sizeof(confirmPin));
+
+        compareNewPin = compareArrays(newPin, confirmPin, 4);
+        if (compareResult == 0)
+        {
+            // wrong old pin
+            return false;
+        }
+        else
+        {
+            if (compareNewPin == 0)
+            {
+                // new and confirm doesn't match
+                return false;
+            }
+            else
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    currentUser.pin[i] = newPin[i];
+                }
+                lseek(fd, 0L, SEEK_SET);
+                write(fd, &currentUser, sizeof(currentUser));
+                return true;
+            }
+        }
     }
 }
 

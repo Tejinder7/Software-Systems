@@ -12,11 +12,13 @@ int userType;
 int menuSelect;
 int registerCount = 3; // Maximum number of attempts for registration
 int loginCount = 3;    // Maximum number of attempts for login
+int passwordChangeCount = 3;
 
 void normalUserRegister(int sd);
 void jointUserRegister(int sd);
 void normalUserLogin(int sd);
 void jointUserLogin(int sd);
+void adminLogin(int sd);
 void depositMoney(int sd);
 void withdrawMoney(int sd);
 void balanceEnquiry(int sd);
@@ -41,10 +43,9 @@ void registerLoginMenu(int sd)
 
     scanf("%d", &userType);
 
-    printf("\nDo you want to login or register\n");
-
     if (userType == 1 || userType == 2)
     {
+        printf("\nDo you want to login or register\n");
 
         printf("Press 1 to login\n");
         printf("Press 2 to register\n");
@@ -79,9 +80,8 @@ void registerLoginMenu(int sd)
 
     else if (userType == 3)
     {
-        printf("Login as admin");
         registerOrLogin = 1;
-        write(sd, &registerOrLogin, sizeof(registerOrLogin));
+        adminLogin(sd);
     }
 
     else
@@ -112,11 +112,11 @@ void mainMenu(int sd)
         switch (menuSelect)
         {
         case 1:
-            // depositMoney(sd);
+            depositMoney(sd);
             break;
 
         case 2:
-            // withdrawMoney(sd);
+            withdrawMoney(sd);
             break;
 
         case 3:
@@ -138,12 +138,12 @@ void mainMenu(int sd)
         }
     }
 
-    else if (menuSelect == 3)
+    else if (userType == 3)
     {
-        printf("Press 1 to add a new user account\n");
-        printf("Press 2 to delete a user account\n");
-        printf("Press 3 for modify a user account\n");
-        printf("Press 4 to search for a specific account details\n");
+        printf("Press 1 to Add a new user account\n");
+        printf("Press 2 to Delete a user account\n");
+        printf("Press 3 to Modify a user account\n");
+        printf("Press 4 to Search for a specific account details\n");
         printf("Press any other key to exit\n");
 
         scanf("%d", &menuSelect);
@@ -226,10 +226,11 @@ void normalUserRegister(int sd)
                 // Decrement registerCount for another attempt
                 registerCount--;
                 normalUserRegister(sd);
+                break;
             }
-
-            currentUser.balance = 0;
         }
+
+        currentUser.balance = 0.0;
 
         write(sd, &currentUser, sizeof(currentUser));
 
@@ -246,6 +247,7 @@ void normalUserRegister(int sd)
             printf("\nUser already exists. Please try again with a different mobile number\n");
             registerCount--;
             normalUserRegister(sd);
+            break;
         }
     }
     if (registerCount == 0)
@@ -313,9 +315,11 @@ void jointUserRegister(int sd)
                 // Decrement registerCount for another attempt
                 registerCount--;
                 jointUserRegister(sd);
+                break;
             }
-            currentUser.balance = 0;
         }
+
+        currentUser.balance = 0.0;
 
         write(sd, &currentUser, sizeof(currentUser));
 
@@ -332,6 +336,7 @@ void jointUserRegister(int sd)
             printf("\nUser already exists. Please try again with a different mobile number\n");
             registerCount--;
             jointUserRegister(sd);
+            break;
         }
     }
     if (registerCount == 0)
@@ -382,6 +387,7 @@ void normalUserLogin(int sd)
             printf("\nWrong login credentials. Please try again.\n");
             loginCount--;
             normalUserLogin(sd);
+            break;
         }
     }
     if (loginCount == 0)
@@ -432,12 +438,109 @@ void jointUserLogin(int sd)
             printf("\nWrong login credentials. Please try again.\n");
             loginCount--;
             jointUserLogin(sd);
+            break;
         }
     }
     if (loginCount == 0)
     {
         printf("Too many attempts\nExiting the system\n");
         exit(-1);
+    }
+}
+
+void adminLogin(int sd){
+    bool result;
+    struct admin currentUser;
+
+    write(sd, &userType, sizeof(userType));
+    write(sd, &registerOrLogin, sizeof(registerOrLogin));
+
+    while (loginCount > 0)
+    {
+        printf("\n\t\t\t\tAdmin Login\n");
+        printf("\nEnter your details to login\n\n");
+
+        printf("Enter your Mobile number: ");
+        // 1d to take 1 digit as input at each index
+        for (int i = 0; i < 10; i++)
+        {
+            scanf("%1d", &currentUser.mobileNumber[i]);
+        }
+
+        printf("Enter PIN               : ");
+        for (int i = 0; i < 4; i++)
+        {
+            scanf("%1d", &currentUser.pin[i]);
+        }
+
+        write(sd, &currentUser, sizeof(currentUser));
+
+        read(sd, &result, sizeof(result));
+
+        if (result)
+        {
+            printf("\nYou are now logged in\n");
+            break;
+        }
+
+        else
+        {
+            printf("\nWrong login credentials. Please try again.\n");
+            loginCount--;
+            normalUserLogin(sd);
+            break;
+        }
+    }
+    if (loginCount == 0)
+    {
+        printf("Too many attempts\nExiting the system\n");
+        exit(-1);
+    }
+}
+
+void depositMoney(int sd){
+    float addMoney;
+    bool result;
+
+    write(sd, &menuSelect, menuSelect);
+
+    printf("\n\t\t\t\tDeposit Money\n\n");
+    printf("How much money do you want to deposit\n");
+    scanf("%f", &addMoney);
+    printf("\n");
+
+    write(sd, &addMoney, sizeof(addMoney));
+
+    read(sd, &result, sizeof(result));
+
+    if(result){
+        printf("\nMoney Deposited successfully. Check balance to confirm deposit\n");
+    }
+    else{
+        printf("Some error occured at the server. Please try again after some time\n");
+    }
+}
+
+void withdrawMoney(int sd){
+    float decrementMoney;
+    bool result;
+
+    write(sd, &menuSelect, menuSelect);
+
+    printf("\n\t\t\tWithdraw Money\n\n");
+    printf("How much money do you want to withdraw\n");
+    scanf("%f", &decrementMoney);
+    printf("\n");
+
+    write(sd, &decrementMoney, sizeof(decrementMoney));
+
+    read(sd, &result, sizeof(result));
+
+    if(result){
+        printf("\nMoney Withdrawed successfully. Check balance to confirm withdrawal\n");
+    }
+    else{
+        printf("Some error occured at the server. Please try again after some time\n");
     }
 }
 
@@ -456,34 +559,101 @@ void passwordChange(int sd)
     int oldPin;
     int newPin[4];
     int confirmPin[4];
+    bool result;
+
     write(sd, &menuSelect, menuSelect);
     printf("\n\t\t\t\tChange Password\n\n");
 
-    if(userType== 1){
+    if (userType == 1)
+    {
         struct normalUser currentUser;
-        printf("Enter current PIN: \n");
-        for (int i = 0; i < 4; i++)
+        while (passwordChangeCount > 0)
+        {
+            printf("Enter current PIN: \n");
+            for (int i = 0; i < 4; i++)
             {
                 scanf("%1d", &currentUser.pin[i]);
             }
-        write(sd, &currentUser.pin, sizeof(currentUser.pin));
-        
-        printf("Enter new PIN: \n");
-        for (int i = 0; i < 4; i++)
+            write(sd, &currentUser.pin, sizeof(currentUser.pin));
+
+            printf("Enter new PIN: \n");
+            for (int i = 0; i < 4; i++)
             {
                 scanf("%1d", &newPin[i]);
             }
-        printf("Confirm new PIN: \n");
-        for (int i = 0; i < 4; i++)
+            write(sd, &newPin, sizeof(newPin));
+
+            printf("Confirm new PIN: \n");
+            for (int i = 0; i < 4; i++)
             {
                 scanf("%1d", &confirmPin[i]);
             }
-
-
-
+            write(sd, &confirmPin, sizeof(confirmPin));
+            read(sd, &result, sizeof(result));
+            if (result)
+            {
+                printf("Password changed succesfully\n");
+                break;
+            }
+            else
+            {
+                printf("Entered wrong PINS. Try Again\n");
+                passwordChangeCount--;
+                passwordChange(sd);
+                break;
+            }
+        }
+        if (passwordChangeCount == 0)
+        {
+            printf("Too many incorrect attempts. Exiting the system\n");
+            exit(-1);
+        }
     }
-    else if(userType== 2){
 
+    else if (userType == 2)
+    {
+        struct jointUser currentUser;
+        while (passwordChangeCount > 0)
+        {
+            printf("Enter current PIN: \n");
+            for (int i = 0; i < 4; i++)
+            {
+                scanf("%1d", &currentUser.pin[i]);
+            }
+            write(sd, &currentUser.pin, sizeof(currentUser.pin));
+
+            printf("Enter new PIN: \n");
+            for (int i = 0; i < 4; i++)
+            {
+                scanf("%1d", &newPin[i]);
+            }
+            write(sd, &newPin, sizeof(newPin));
+
+            printf("Confirm new PIN: \n");
+            for (int i = 0; i < 4; i++)
+            {
+                scanf("%1d", &confirmPin[i]);
+            }
+            write(sd, &confirmPin, sizeof(confirmPin));
+            read(sd, &result, sizeof(result));
+            if (result)
+            {
+                printf("Password changed succesfully\n");
+                break;
+            }
+            else
+            {
+                printf("Entered wrong PINS. Try Again\n");
+                passwordChangeCount--;
+                passwordChange(sd);
+                break;
+            }
+        }
+        if (passwordChangeCount == 0)
+        {
+            printf("Too many incorrect attempts. Exiting the system\n");
+            exit(-1);
+        }
     }
 }
 
@@ -506,7 +676,7 @@ void viewDetails(int sd)
             printf("%d", currentUser.mobileNumber[i]);
         }
         printf("\n");
-        printf("Current Balance         : %f", currentUser.balance);
+        printf("Current Balance         : %f\n", currentUser.balance);
     }
     else if (userType == 2)
     {
@@ -521,7 +691,7 @@ void viewDetails(int sd)
             printf("%d", currentUser.mobileNumber[i]);
         }
         printf("\n");
-        printf("Current Balance           : %f", currentUser.balance);
+        printf("Current Balance           : %f\n", currentUser.balance);
     }
 }
 
