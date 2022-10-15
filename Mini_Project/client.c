@@ -10,9 +10,11 @@
 int registerOrLogin;
 int userType;
 int menuSelect;
+int typeSelect;
 int registerCount = 3; // Maximum number of attempts for registration
 int loginCount = 3;    // Maximum number of attempts for login
 int passwordChangeCount = 3;
+bool flag = true;
 
 void normalUserRegister(int sd);
 void jointUserRegister(int sd);
@@ -27,7 +29,9 @@ void viewDetails(int sd);
 void addUser(int sd);
 void deleteUser(int sd);
 void modifyAccount(int sd);
-void searchAccount(int sd);
+void searchDetails(int sd);
+void fetchNormalUser(int sd);
+void fetchJointUser(int sd);
 void registerLoginMenu(int sd);
 void mainMenu(int sd);
 int compareArrays(int arr1[], int arr2[], int length);
@@ -60,6 +64,7 @@ void registerLoginMenu(int sd)
         else if (userType == 1 && registerOrLogin == 2)
         {
             normalUserRegister(sd);
+            printf("\nYou are now logged in\n");
         }
 
         else if (userType == 2 && registerOrLogin == 1)
@@ -70,6 +75,7 @@ void registerLoginMenu(int sd)
         else if (userType == 2 && registerOrLogin == 2)
         {
             jointUserRegister(sd);
+            printf("\nYou are now logged in\n");
         }
         else
         {
@@ -151,19 +157,19 @@ void mainMenu(int sd)
         switch (menuSelect)
         {
         case 1:
-            // addUser(sd);
+            addUser(sd);
             break;
 
         case 2:
-            // deleteUser(sd);
+            deleteUser(sd);
             break;
 
         case 3:
-            // modifyAccount(sd);
+            modifyAccount(sd);
             break;
 
         case 4:
-            // SearchAccount(sd);
+            searchDetails(sd);
             break;
 
         default:
@@ -181,11 +187,18 @@ void normalUserRegister(int sd)
 
     int confirmPin[4]; // To match with the entered PIN for registration
 
-    write(sd, &userType, sizeof(userType));
-    write(sd, &registerOrLogin, sizeof(registerOrLogin));
-
     while (registerCount > 0)
     {
+        if (flag)
+        {
+            write(sd, &userType, sizeof(userType));
+            write(sd, &registerOrLogin, sizeof(registerOrLogin));
+        }
+        else
+        {
+            write(sd, &typeSelect, sizeof(typeSelect));
+        }
+
         printf("\n\t\t\t\tNormal User Registration\n");
         printf("\nEnter your details for Registration\n\n");
 
@@ -225,8 +238,6 @@ void normalUserRegister(int sd)
                 printf("Your PIN doesn't match. Please try again\n\n");
                 // Decrement registerCount for another attempt
                 registerCount--;
-                normalUserRegister(sd);
-                break;
             }
         }
 
@@ -238,7 +249,7 @@ void normalUserRegister(int sd)
 
         if (result)
         {
-            printf("\nUser created Successfully\nYou are now logged in\n");
+            printf("\nUser created Successfully\n");
             break;
         }
 
@@ -246,8 +257,6 @@ void normalUserRegister(int sd)
         {
             printf("\nUser already exists. Please try again with a different mobile number\n");
             registerCount--;
-            normalUserRegister(sd);
-            break;
         }
     }
     if (registerCount == 0)
@@ -264,11 +273,18 @@ void jointUserRegister(int sd)
 
     int confirmPin[4]; // To match with the entered PIN for registration
 
-    write(sd, &userType, sizeof(userType));
-    write(sd, &registerOrLogin, sizeof(registerOrLogin));
-
     while (registerCount > 0)
     {
+        if (flag)
+        {
+            write(sd, &userType, sizeof(userType));
+            write(sd, &registerOrLogin, sizeof(registerOrLogin));
+        }
+        else
+        {
+            write(sd, &typeSelect, sizeof(typeSelect));
+        }
+
         printf("\n\t\t\t\tJoint User Registration\n");
         printf("\nEnter your details for Registration\n\n");
 
@@ -314,8 +330,6 @@ void jointUserRegister(int sd)
                 printf("Your PIN doesn't match. Please try again\n\n");
                 // Decrement registerCount for another attempt
                 registerCount--;
-                jointUserRegister(sd);
-                break;
             }
         }
 
@@ -327,7 +341,7 @@ void jointUserRegister(int sd)
 
         if (result)
         {
-            printf("\nUser created Successfully\nYou are now logged in\n");
+            printf("\nUser created Successfully\n");
             break;
         }
 
@@ -335,8 +349,82 @@ void jointUserRegister(int sd)
         {
             printf("\nUser already exists. Please try again with a different mobile number\n");
             registerCount--;
-            jointUserRegister(sd);
+        }
+    }
+    if (registerCount == 0)
+    {
+        printf("Too many attempts\nExiting the system\n");
+        exit(-1);
+    }
+}
+
+void adminRegister(int sd)
+{
+    bool result;
+    struct admin currentUser;
+
+    int confirmPin[4]; // To match with the entered PIN for registration
+
+    while (registerCount > 0)
+    {
+        write(sd, &typeSelect, sizeof(typeSelect));
+
+        printf("\n\t\t\t\tAdmin Registration\n");
+        printf("\nEnter your details for Registration\n\n");
+
+        printf("Enter First name          : ");
+        scanf("%s", currentUser.firstName);
+
+        printf("Enter Last name           : ");
+        scanf("%s", currentUser.lastName);
+
+        printf("Enter Mobile number       : ");
+        // 1d to take 1 digit as input at each index
+        for (int i = 0; i < 10; i++)
+        {
+            scanf("%1d", &currentUser.mobileNumber[i]);
+        }
+
+        while (registerCount > 0)
+        {
+            printf("Enter PIN                 : ");
+            for (int i = 0; i < 4; i++)
+            {
+                scanf("%1d", &currentUser.pin[i]);
+            }
+
+            printf("Confirm PIN               : ");
+            for (int i = 0; i < 4; i++)
+            {
+                scanf("%1d", &confirmPin[i]);
+            }
+            // compareArrays will compare the PIN's entered
+            if (compareArrays(currentUser.pin, confirmPin, 4))
+            {
+                break;
+            }
+            else
+            {
+                printf("Your PIN doesn't match. Please try again\n\n");
+                // Decrement registerCount for another attempt
+                registerCount--;
+            }
+        }
+
+        write(sd, &currentUser, sizeof(currentUser));
+
+        read(sd, &result, sizeof(result));
+
+        if (result)
+        {
+            printf("\nUser created Successfully\n");
             break;
+        }
+
+        else
+        {
+            printf("\nUser already exists. Please try again with a different mobile number\n");
+            registerCount--;
         }
     }
     if (registerCount == 0)
@@ -448,15 +536,16 @@ void jointUserLogin(int sd)
     }
 }
 
-void adminLogin(int sd){
+void adminLogin(int sd)
+{
     bool result;
     struct admin currentUser;
 
-    write(sd, &userType, sizeof(userType));
-    write(sd, &registerOrLogin, sizeof(registerOrLogin));
-
     while (loginCount > 0)
     {
+        write(sd, &userType, sizeof(userType));
+        write(sd, &registerOrLogin, sizeof(registerOrLogin));
+
         printf("\n\t\t\t\tAdmin Login\n");
         printf("\nEnter your details to login\n\n");
 
@@ -487,8 +576,6 @@ void adminLogin(int sd){
         {
             printf("\nWrong login credentials. Please try again.\n");
             loginCount--;
-            normalUserLogin(sd);
-            break;
         }
     }
     if (loginCount == 0)
@@ -498,7 +585,8 @@ void adminLogin(int sd){
     }
 }
 
-void depositMoney(int sd){
+void depositMoney(int sd)
+{
     float addMoney;
     bool result;
 
@@ -513,15 +601,18 @@ void depositMoney(int sd){
 
     read(sd, &result, sizeof(result));
 
-    if(result){
+    if (result)
+    {
         printf("\nMoney Deposited successfully. Check balance to confirm deposit\n");
     }
-    else{
+    else
+    {
         printf("Some error occured at the server. Please try again after some time\n");
     }
 }
 
-void withdrawMoney(int sd){
+void withdrawMoney(int sd)
+{
     float decrementMoney;
     bool result;
 
@@ -536,10 +627,12 @@ void withdrawMoney(int sd){
 
     read(sd, &result, sizeof(result));
 
-    if(result){
+    if (result)
+    {
         printf("\nMoney Withdrawed successfully. Check balance to confirm withdrawal\n");
     }
-    else{
+    else
+    {
         printf("Some error occured at the server. Please try again after some time\n");
     }
 }
@@ -665,34 +758,249 @@ void viewDetails(int sd)
 
     if (userType == 1)
     {
-        // fetch normal user
-        struct normalUser currentUser;
-        read(sd, &currentUser, sizeof(currentUser));
-
-        printf("Account holder's name   : %s %s\n", currentUser.firstName, currentUser.lastName);
-        printf("Registered mobile number: ");
-        for (int i = 0; i < 10; i++)
-        {
-            printf("%d", currentUser.mobileNumber[i]);
-        }
-        printf("\n");
-        printf("Current Balance         : %f\n", currentUser.balance);
+        fetchNormalUser(sd);
     }
     else if (userType == 2)
     {
-        struct jointUser currentUser;
-        read(sd, &currentUser, sizeof(currentUser));
+        fetchJointUser(sd);
+    }
+}
 
-        printf("Account holder 1's name   : %s %s\n", currentUser.firstName, currentUser.lastName);
-        printf("Account holder 2's name   : %s %s\n", currentUser.firstName2, currentUser.lastName2);
-        printf("Registered mobile number  : ");
+void addUser(int sd)
+{
+    bool result;
+
+    write(sd, &menuSelect, menuSelect);
+    printf("\n\t\t\t\tAdding new user\n\n");
+
+    printf("Enter the type of user you want to add\n");
+    printf("Press 1 for Normal User\n");
+    printf("Press 2 for Joint account user\n");
+    printf("Press 3 for Admin\n");
+    printf("Press any other key to exit the system\n");
+
+    scanf("%d", &typeSelect);
+
+    if (typeSelect == 1)
+    {
+        flag = false;
+        normalUserRegister(sd);
+    }
+
+    else if (typeSelect == 2)
+    {
+        flag = false;
+        jointUserRegister(sd);
+    }
+    else if (typeSelect == 3)
+    {
+        adminRegister(sd);
+    }
+    else
+    {
+        printf("\nThank you using our services. Exiting the system\n");
+        exit(0);
+    }
+}
+
+void deleteUser(int sd)
+{
+    bool result;
+    int mobileNumber[10];
+
+    write(sd, &menuSelect, menuSelect);
+    printf("\n\t\t\t\tDeleting user\n\n");
+
+    printf("Enter the type of user you want delete\n");
+    printf("Press 1 for Normal User\n");
+    printf("Press 2 for Joint account user\n");
+    printf("Press any other key to exit the system\n");
+
+    scanf("%d", &typeSelect);
+    if (typeSelect == 1 || typeSelect == 2)
+    {
+        write(sd, &typeSelect, sizeof(typeSelect));
+
+        printf("\nEnter the mobile number of the account you want to delete\n");
         for (int i = 0; i < 10; i++)
         {
-            printf("%d", currentUser.mobileNumber[i]);
+            scanf("%1d", &mobileNumber[i]);
         }
-        printf("\n");
-        printf("Current Balance           : %f\n", currentUser.balance);
+
+        write(sd, mobileNumber, sizeof(mobileNumber));
+
+        read(sd, &result, sizeof(result));
+        if (result)
+        {
+            printf("\nAccount deleted successfully\n");
+        }
+        else
+        {
+            printf("\nThe mobile number specified does not have an account.\nTry again with a different mobile number\n");
+        }
     }
+    else
+    {
+        printf("\nThank you using our services. Exiting the system\n");
+    }
+}
+
+void modifyAccount(int sd)
+{
+    bool result;
+    int mobileNumber[10];
+
+    write(sd, &menuSelect, menuSelect);
+    printf("\n\t\t\t\tModifying user\n\n");
+
+    printf("Enter the type of user you want to modify\n");
+    printf("Press 1 for Normal User\n");
+    printf("Press 2 for Joint account user\n");
+    printf("Press any other key to exit the system\n");
+
+    scanf("%d", &typeSelect);
+    if (typeSelect == 1 || typeSelect == 2)
+    {
+        write(sd, &typeSelect, sizeof(typeSelect));
+
+        printf("\nEnter the mobile number of the account you want to delete\n");
+        for (int i = 0; i < 10; i++)
+        {
+            scanf("%1d", &mobileNumber[i]);
+        }
+
+        write(sd, mobileNumber, sizeof(mobileNumber));
+
+        if (typeSelect == 1)
+        {
+            struct normalUser currentUser;
+            printf("/n Enter new details of the user\n");
+
+            printf("Enter First name   : ");
+            scanf("%s", currentUser.firstName);
+
+            printf("Enter Last name    : ");
+            scanf("%s", currentUser.lastName);
+
+            printf("Enter Mobile number: ");
+            // 1d to take 1 digit as input at each index
+            for (int i = 0; i < 10; i++)
+            {
+                scanf("%1d", &currentUser.mobileNumber[i]);
+            }
+            write(sd, &currentUser, sizeof(currentUser));
+        }
+        else if (typeSelect == 2)
+        {
+            struct jointUser currentUser;
+
+            printf("Enter First name of user 1: ");
+            scanf("%s", currentUser.firstName);
+
+            printf("Enter Last name of user 1 : ");
+            scanf("%s", currentUser.lastName);
+
+            printf("Enter First name of user 2: ");
+            scanf("%s", currentUser.firstName2);
+
+            printf("Enter Last name of user 2 : ");
+            scanf("%s", currentUser.lastName2);
+
+            printf("Enter Mobile number       : ");
+            // 1d to take 1 digit as input at each index
+            for (int i = 0; i < 10; i++)
+            {
+                scanf("%1d", &currentUser.mobileNumber[i]);
+            }
+            write(sd, &currentUser, sizeof(currentUser));
+        }
+
+        read(sd, &result, sizeof(result));
+
+        if (result)
+        {
+            printf("\n Account modified successfully");
+        }
+        else
+        {
+            printf("\n There is an error.\nPlease try again\n");
+        }
+    }
+    else
+    {
+        printf("\nThank you using our services. Exiting the system\n");
+    }
+}
+
+void searchDetails(int sd)
+{
+    bool result;
+    int mobileNumber[10];
+
+    write(sd, &menuSelect, menuSelect);
+    printf("\n\t\t\t\tAdding new user\n\n");
+
+    printf("Enter the type of user you want to search for\n");
+    printf("Press 1 for Normal User\n");
+    printf("Press 2 for Joint account user\n");
+    printf("Press any other key to exit the system\n");
+
+    scanf("%d", &typeSelect);
+    write(sd, &typeSelect, sizeof(typeSelect));
+
+    printf("\nEnter the mobile number of the account you want to search\n");
+    for (int i = 0; i < 10; i++)
+    {
+        scanf("%1d", &mobileNumber[i]);
+    }
+
+    write(sd, mobileNumber, sizeof(mobileNumber));
+
+    if (typeSelect == 1)
+    {
+        fetchNormalUser(sd);
+    }
+
+    else if (typeSelect == 2)
+    {
+        fetchJointUser(sd);
+    }
+    else
+    {
+        printf("\nThank you using our services. Exiting the system\n");
+        exit(0);
+    }
+}
+
+void fetchNormalUser(int sd)
+{
+    struct normalUser currentUser;
+    read(sd, &currentUser, sizeof(currentUser));
+
+    printf("Account holder's name   : %s %s\n", currentUser.firstName, currentUser.lastName);
+    printf("Registered mobile number: ");
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d", currentUser.mobileNumber[i]);
+    }
+    printf("\n");
+    printf("Current Balance         : %f\n", currentUser.balance);
+}
+
+void fetchJointUser(int sd)
+{
+    struct jointUser currentUser;
+    read(sd, &currentUser, sizeof(currentUser));
+
+    printf("Account holder 1's name   : %s %s\n", currentUser.firstName, currentUser.lastName);
+    printf("Account holder 2's name   : %s %s\n", currentUser.firstName2, currentUser.lastName2);
+    printf("Registered mobile number  : ");
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d", currentUser.mobileNumber[i]);
+    }
+    printf("\n");
+    printf("Current Balance           : %f\n", currentUser.balance);
 }
 
 int compareArrays(int arr1[], int arr2[], int length)
