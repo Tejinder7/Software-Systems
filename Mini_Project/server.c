@@ -30,13 +30,15 @@ bool deleteJointUser(int sd);
 bool modifyNormalUser(int sd);
 bool modifyJointUser(int sd);
 int compareArrays(int arr1[], int arr2[], int length);
+void arrayToString(int arr[], char name[]);
 
 int registerOrLogin;
 int userType;
 int menuSelect;
 int fd;
 int fd1;
-bool flag = true;
+struct flock lock;
+bool flag = false;
 
 void serverTasks(int sd)
 {
@@ -45,10 +47,11 @@ void serverTasks(int sd)
     while (1)
     {
         read(sd, &userType, sizeof(userType));
-        read(sd, &registerOrLogin, sizeof(registerOrLogin));
+        
         if (userType == 1)
         {
             struct normalUser currentUser;
+            read(sd, &registerOrLogin, sizeof(registerOrLogin));
 
             if (registerOrLogin == 1)
             {
@@ -67,10 +70,16 @@ void serverTasks(int sd)
                 close(fd1);
                 write(sd, &result, sizeof(result));
             }
+            else if (registerOrLogin == 3)
+            {
+                write(1, "\nTerminating connection\n", sizeof("\nTerminating connection\n"));
+                exit(0);
+            }
         }
 
         else if (userType == 2)
         {
+            read(sd, &registerOrLogin, sizeof(registerOrLogin));
             struct jointUser currentUser;
 
             if (registerOrLogin == 1)
@@ -90,156 +99,189 @@ void serverTasks(int sd)
                 close(fd1);
                 write(sd, &result, sizeof(result));
             }
+            else if (registerOrLogin == 3)
+            {
+                write(1, "\nTerminating connection\n", sizeof("\nTerminating connection\n"));
+                exit(0);
+            }
         }
-        else
+        else if (userType == 3)
         {
+            read(sd, &registerOrLogin, sizeof(registerOrLogin));
             struct admin currentUser;
             read(sd, &currentUser, sizeof(currentUser));
 
             result = loginAdmin(sd, currentUser);
             write(sd, &result, sizeof(result));
         }
+        else if (userType== 4)
+        {
+            write(1, "\nTerminating connection\n", sizeof("\nTerminating connection\n"));
+            exit(0);
+        }
+
         if (result)
         {
             break;
         }
     }
 
-    read(sd, &menuSelect, sizeof(menuSelect));
-    if (userType == 1 || userType == 2)
+    while (1)
     {
-        switch (menuSelect)
+        read(sd, &menuSelect, sizeof(menuSelect));
+        if (userType == 1 || userType == 2)
         {
-        case 1:
-            result = depositMoney(sd);
-            write(sd, &result, sizeof(result));
-            break;
-        case 2:
-            result = withdrawMoney(sd);
-            write(sd, &result, sizeof(result));
-            break;
-        case 3:
-            float balance;
-            balance = checkBalance(sd);
-            write(sd, &balance, sizeof(balance));
-            break;
-        case 4:
-            result = passwordChange(sd);
-            write(sd, &result, sizeof(result));
-            break;
-
-        case 5:
-            if (userType == 1)
+            switch (menuSelect)
             {
-                struct normalUser currentUser;
-                currentUser = viewDetailsNormalUser(sd);
-                write(sd, &currentUser, sizeof(currentUser));
-            }
-            else if (userType == 2)
-            {
-                struct jointUser currentUser;
-                currentUser = viewDetailsJointUser(sd);
-                write(sd, &currentUser, sizeof(currentUser));
-            }
-            break;
+            case 1:
+                result = depositMoney(sd);
+                write(sd, &result, sizeof(result));
+                break;
+            case 2:
+                result = withdrawMoney(sd);
+                write(sd, &result, sizeof(result));
+                break;
+            case 3:
+                float balance;
+                balance = checkBalance(sd);
+                write(sd, &balance, sizeof(balance));
+                break;
+            case 4:
+                result = passwordChange(sd);
+                write(sd, &result, sizeof(result));
+                break;
 
-        default:
-            break;
+            case 5:
+                if (userType == 1)
+                {
+                    struct normalUser currentUser;
+                    currentUser = viewDetailsNormalUser(sd);
+                    write(sd, &currentUser, sizeof(currentUser));
+                }
+                else if (userType == 2)
+                {
+                    struct jointUser currentUser;
+                    currentUser = viewDetailsJointUser(sd);
+                    write(sd, &currentUser, sizeof(currentUser));
+                }
+                break;
+
+            case 6:
+                flag = true;
+                break;
+
+            default:
+                break;
+            }
         }
-    }
-    else if (userType == 3)
-    {
-        int typeSelect;
-        switch (menuSelect)
+
+        else if (userType == 3)
         {
-        case 1:
-            while (1)
+            int typeSelect;
+            switch (menuSelect)
             {
+            case 1:
+                while (1)
+                {
+                    read(sd, &typeSelect, sizeof(typeSelect));
+                    if (typeSelect == 1)
+                    {
+
+                        struct normalUser currentUser;
+                        read(sd, &currentUser, sizeof(currentUser));
+                        result = registerNormalUser(sd, currentUser);
+                        write(sd, &result, sizeof(result));
+                    }
+
+                    else if (typeSelect == 2)
+                    {
+
+                        struct jointUser currentUser;
+                        read(sd, &currentUser, sizeof(currentUser));
+                        result = registerJointUser(sd, currentUser);
+                        write(sd, &result, sizeof(result));
+                    }
+                    else if (typeSelect == 3)
+                    {
+
+                        struct admin currentUser;
+                        read(sd, &currentUser, sizeof(currentUser));
+                        result = addAdmin(sd, currentUser);
+                        write(sd, &result, sizeof(result));
+                    }
+                    else if (typeSelect == 4)
+                    {
+                        printf("\nAdminside Terminating Connection\n");
+                        exit(0);
+                    }
+                    if (result)
+                    {
+                        break;
+                    }
+                }
+                break;
+
+            case 2:
                 read(sd, &typeSelect, sizeof(typeSelect));
+
                 if (typeSelect == 1)
                 {
-
-                    struct normalUser currentUser;
-                    read(sd, &currentUser, sizeof(currentUser));
-                    result = registerNormalUser(sd, currentUser);
+                    result = deleteNormalUser(sd);
                     write(sd, &result, sizeof(result));
                 }
-
                 else if (typeSelect == 2)
                 {
+                    result = deleteJointUser(sd);
+                    write(sd, &result, sizeof(result));
+                }
+                break;
 
+            case 3:
+                read(sd, &typeSelect, sizeof(typeSelect));
+
+                if (typeSelect == 1)
+                {
+                    result = modifyNormalUser(sd);
+                    write(sd, &result, sizeof(result));
+                }
+                else if (typeSelect == 2)
+                {
+                    result = modifyJointUser(sd);
+                    write(sd, &result, sizeof(result));
+                }
+                break;
+
+            case 4:
+                read(sd, &typeSelect, sizeof(typeSelect));
+
+                if (typeSelect == 1)
+                {
+                    struct normalUser currentUser;
+
+                    currentUser = getNormalUser(sd);
+
+                    write(sd, &currentUser, sizeof(currentUser));
+                }
+                else if (typeSelect == 2)
+                {
                     struct jointUser currentUser;
-                    read(sd, &currentUser, sizeof(currentUser));
-                    result = registerJointUser(sd, currentUser);
-                    write(sd, &result, sizeof(result));
+
+                    currentUser = getJointUser(sd);
+
+                    write(sd, &currentUser, sizeof(currentUser));
                 }
-                else if (typeSelect == 3)
-                {
+                break;
 
-                    struct admin currentUser;
-                    read(sd, &currentUser, sizeof(currentUser));
-                    result = addAdmin(sd, currentUser);
-                    write(sd, &result, sizeof(result));
-                }
-                if (result)
-                {
-                    break;
-                }
+            case 5:
+                flag = true;
+                break;
+
+            default:
+                break;
             }
-            break;
-
-        case 2:
-            read(sd, &typeSelect, sizeof(typeSelect));
-
-            if (typeSelect == 1)
-            {
-                result = deleteNormalUser(sd);
-                write(sd, &result, sizeof(result));
-            }
-            else if (typeSelect == 2)
-            {
-                result = deleteJointUser(sd);
-                write(sd, &result, sizeof(result));
-            }
-            break;
-        
-        case 3:
-            read(sd, &typeSelect, sizeof(typeSelect));
-
-            if (typeSelect == 1)
-            {
-                result = modifyNormalUser(sd);
-                write(sd, &result, sizeof(result));
-            }
-            else if (typeSelect == 2)
-            {
-                result = modifyJointUser(sd);
-                write(sd, &result, sizeof(result));
-            }
-            break;
-        
-        case 4:
-            read(sd, &typeSelect, sizeof(typeSelect));
-
-            if (typeSelect == 1)
-            {
-                struct normalUser currentUser;
-
-                currentUser = getNormalUser(sd);
-
-                write(sd, &currentUser, sizeof(currentUser));
-            }
-            else if (typeSelect == 2)
-            {
-                struct jointUser currentUser;
-
-                currentUser = getJointUser(sd);
-
-                write(sd, &currentUser, sizeof(currentUser));
-            }
-            break;
-
-        default:
+        }
+        if (flag)
+        {
             break;
         }
     }
@@ -248,17 +290,23 @@ void serverTasks(int sd)
 bool registerNormalUser(int sd, struct normalUser user1)
 {
     bool result;
+    int confirmPin[4];
+    int compareStatus;
 
     int writeStatus;
+
+    read(sd, &confirmPin, sizeof(confirmPin));
+    compareStatus = compareArrays(confirmPin, user1.pin, 4);
+
+    if (!compareStatus)
+    {
+        return false;
+    }
 
     char filePath[16] = "normalusers/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     // Concatenate to generate a proper filePath to store the user details in a file
     strcat(filePath, fileName);
@@ -290,17 +338,23 @@ bool registerNormalUser(int sd, struct normalUser user1)
 bool registerJointUser(int sd, struct jointUser user1)
 {
     bool result;
+    int confirmPin[4];
+    int compareStatus;
 
     int writeStatus;
+
+    read(sd, &confirmPin, sizeof(confirmPin));
+    compareStatus = compareArrays(confirmPin, user1.pin, 4);
+
+    if (!compareStatus)
+    {
+        return false;
+    }
 
     char filePath[16] = "jointusers/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     // Concatenate to generate a proper filePath to store the user details in a file
     strcat(filePath, fileName);
@@ -338,11 +392,7 @@ bool loginNormalUser(int sd, struct normalUser user1)
     char filePath[16] = "normalusers/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     strcat(filePath, fileName);
     printf("%s", filePath);
@@ -378,11 +428,7 @@ bool loginJointUser(int sd, struct jointUser user1)
     char filePath[16] = "jointusers/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     strcat(filePath, fileName);
     printf("%s", filePath);
@@ -418,11 +464,7 @@ bool loginAdmin(int sd, struct admin user1)
     char filePath[16] = "admins/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     strcat(filePath, fileName);
     printf("%s", filePath);
@@ -453,7 +495,26 @@ bool depositMoney(int sd)
     float addMoney;
     int readStatus;
     int writeStatus;
+    int lockStatus;
 
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
     read(sd, &addMoney, sizeof(addMoney));
 
     lseek(fd, 0L, SEEK_SET);
@@ -470,6 +531,10 @@ bool depositMoney(int sd)
         lseek(fd, (-1) * sizeof(currentUser), SEEK_CUR);
 
         writeStatus = write(fd, &currentUser, sizeof(currentUser));
+
+        lock.l_type = F_UNLCK;
+        fcntl(fd, F_SETLK, &lock);
+        printf("Transaction complete\n");
         return true;
     }
     else if (userType == 2)
@@ -481,6 +546,10 @@ bool depositMoney(int sd)
         lseek(fd, 0L, SEEK_SET);
 
         writeStatus = write(fd, &currentUser, sizeof(currentUser));
+
+        lock.l_type = F_UNLCK;
+        fcntl(fd, F_SETLK, &lock);
+        printf("Transaction complete\n");
         return true;
     }
 }
@@ -490,7 +559,26 @@ bool withdrawMoney(int sd)
     float decrementMoney;
     int readStatus;
     int writeStatus;
+    int lockStatus;
 
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
     read(sd, &decrementMoney, sizeof(decrementMoney));
 
     lseek(fd, 0L, SEEK_SET);
@@ -501,12 +589,32 @@ bool withdrawMoney(int sd)
         readStatus = read(fd, &currentUser, sizeof(currentUser));
         if (readStatus)
         {
-            currentUser.balance -= decrementMoney;
+            if (decrementMoney <= currentUser.balance)
+            {
+                currentUser.balance -= decrementMoney;
+            }
+            else
+            {
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
+                return false;
+            }
+        }
+        else
+        {
+            lock.l_type = F_UNLCK;
+            fcntl(fd, F_SETLK, &lock);
+            printf("Transaction complete\n");
+            return false;
         }
 
         lseek(fd, (-1) * sizeof(currentUser), SEEK_CUR);
 
         writeStatus = write(fd, &currentUser, sizeof(currentUser));
+        lock.l_type = F_UNLCK;
+        fcntl(fd, F_SETLK, &lock);
+        printf("Transaction complete\n");
         return true;
     }
     else if (userType == 2)
@@ -514,10 +622,33 @@ bool withdrawMoney(int sd)
         struct jointUser currentUser;
         readStatus = read(fd, &currentUser, sizeof(currentUser));
 
-        currentUser.balance -= decrementMoney;
+        if (readStatus)
+        {
+            if (decrementMoney <= currentUser.balance)
+            {
+                currentUser.balance -= decrementMoney;
+            }
+            else
+            {
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
+                return false;
+            }
+        }
+        else
+        {
+            lock.l_type = F_UNLCK;
+            fcntl(fd, F_SETLK, &lock);
+            printf("Transaction complete\n");
+            return false;
+        }
         lseek(fd, 0L, SEEK_SET);
 
         writeStatus = write(fd, &currentUser, sizeof(currentUser));
+        lock.l_type = F_UNLCK;
+        fcntl(fd, F_SETLK, &lock);
+        printf("Transaction complete\n");
         return true;
     }
 }
@@ -526,6 +657,27 @@ float checkBalance(int sd)
 {
     int amount;
     int readStatus;
+    int lockStatus;
+
+    lock.l_type = F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        amount = 0;
+        return amount;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
 
     lseek(fd, 0L, SEEK_SET);
 
@@ -537,10 +689,14 @@ float checkBalance(int sd)
     }
     else if (userType == 2)
     {
-        struct normalUser currentUser;
+        struct jointUser currentUser;
         readStatus = read(fd, &currentUser, sizeof(currentUser));
         amount = currentUser.balance;
     }
+    
+    lock.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &lock);
+    printf("Transaction complete\n");
     return amount;
 }
 
@@ -552,6 +708,27 @@ bool passwordChange(int sd)
     int readStatus;
     int compareResult;
     int compareNewPin;
+
+    int lockStatus;
+
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is trying to change password\n", sizeof("Checking if other user is trying to change password\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
 
     lseek(fd, 0L, SEEK_SET);
 
@@ -569,6 +746,9 @@ bool passwordChange(int sd)
         if (compareResult == 0)
         {
             // wrong old pin
+            lock.l_type = F_UNLCK;
+            fcntl(fd, F_SETLK, &lock);
+            printf("Transaction complete\n");
             return false;
         }
         else
@@ -576,6 +756,9 @@ bool passwordChange(int sd)
             if (compareNewPin == 0)
             {
                 // new and confirm doesn't match
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
                 return false;
             }
             else
@@ -586,6 +769,9 @@ bool passwordChange(int sd)
                 }
                 lseek(fd, 0L, SEEK_SET);
                 write(fd, &currentUser, sizeof(currentUser));
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
                 return true;
             }
         }
@@ -603,6 +789,9 @@ bool passwordChange(int sd)
         if (compareResult == 0)
         {
             // wrong old pin
+            lock.l_type = F_UNLCK;
+            fcntl(fd, F_SETLK, &lock);
+            printf("Transaction complete\n");
             return false;
         }
         else
@@ -610,6 +799,9 @@ bool passwordChange(int sd)
             if (compareNewPin == 0)
             {
                 // new and confirm doesn't match
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
                 return false;
             }
             else
@@ -620,6 +812,9 @@ bool passwordChange(int sd)
                 }
                 lseek(fd, 0L, SEEK_SET);
                 write(fd, &currentUser, sizeof(currentUser));
+                lock.l_type = F_UNLCK;
+                fcntl(fd, F_SETLK, &lock);
+                printf("Transaction complete\n");
                 return true;
             }
         }
@@ -630,11 +825,32 @@ struct normalUser viewDetailsNormalUser(int sd)
 {
     struct normalUser currentUser;
     int readStatus;
+    int lockStatus;
+
+    lock.l_type = F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return currentUser;
+    }
 
     lseek(fd, 0L, SEEK_SET);
 
     readStatus = read(fd, &currentUser, sizeof(currentUser));
-    printf("%s", currentUser.firstName);
+    
+    lock.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &lock);
+    printf("Transaction complete\n");
+    
     return currentUser;
 }
 
@@ -643,6 +859,7 @@ struct normalUser getNormalUser(int sd)
     struct normalUser currentUser;
     int readStatus;
     int fd2;
+    int lockStatus;
 
     int mobileNumber[10];
 
@@ -650,22 +867,36 @@ struct normalUser getNormalUser(int sd)
 
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", mobileNumber[i]);
-    }
+    arrayToString(mobileNumber, fileName);
 
     char path[16] = "normalusers/";
     strcat(path, fileName);
-    printf("%s", path);
 
     fd2 = open(path, O_RDWR);
-    perror("Error:");
+    
+    lock.l_type = F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd2, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return currentUser;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
 
     readStatus = read(fd2, &currentUser, sizeof(currentUser));
-    printf("%s", currentUser.firstName);
-    return currentUser;
+    lock.l_type = F_UNLCK;
+    fcntl(fd2, F_SETLK, &lock);
+    printf("Transaction complete\n");
 }
 
 struct jointUser getJointUser(int sd)
@@ -673,6 +904,7 @@ struct jointUser getJointUser(int sd)
     struct jointUser currentUser;
     int readStatus;
     int fd2;
+    int lockStatus;
 
     int mobileNumber[10];
 
@@ -680,21 +912,37 @@ struct jointUser getJointUser(int sd)
 
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", mobileNumber[i]);
-    }
+    arrayToString(mobileNumber, fileName);
 
     char path[16] = "jointusers/";
     strcat(path, fileName);
-    printf("%s", path);
 
     fd2 = open(path, O_RDWR);
-    perror("Error:");
+
+    lock.l_type = F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd2, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return currentUser;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
 
     readStatus = read(fd2, &currentUser, sizeof(currentUser));
-    printf("%s", currentUser.firstName);
+    
+    lock.l_type = F_UNLCK;
+    fcntl(fd2, F_SETLK, &lock);
+    printf("Transaction complete\n");
     return currentUser;
 }
 
@@ -702,11 +950,32 @@ struct jointUser viewDetailsJointUser(int sd)
 {
     struct jointUser currentUser;
     int readStatus;
+    int lockStatus;
+
+    lock.l_type = F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fd, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return currentUser;
+    }
 
     lseek(fd, 0L, SEEK_SET);
 
     readStatus = read(fd, &currentUser, sizeof(currentUser));
-    printf("%s", currentUser.firstName);
+    
+    lock.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &lock);
+    printf("Transaction complete\n");
+    
     return currentUser;
 }
 
@@ -719,11 +988,7 @@ bool addAdmin(int sd, struct admin user1)
     char filePath[16] = "admins/";
     char fileName[11]; // mobileNumber to be used as filename in users directory
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&fileName[i], "%d", user1.mobileNumber[i]);
-    }
+    arrayToString(user1.mobileNumber, fileName);
 
     // Concatenate to generate a proper filePath to store the user details in a file
     strcat(filePath, fileName);
@@ -758,16 +1023,44 @@ bool deleteNormalUser(int sd)
     char path[16] = "normalusers/";
     char name[11];
     int deleteStatus;
+    int fdDelete;
+    int lockStatus;
 
     read(sd, mobileNumber, sizeof(mobileNumber));
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name[i], "%d", mobileNumber[i]);
-    }
+    arrayToString(mobileNumber, name);
 
     strcat(path, name);
+    
+    fdDelete= open(path, O_RDWR);
+    
+    if(fdDelete== -1){
+        lockStatus= 0;
+        write(sd, &lockStatus, sizeof(lockStatus));
+        return false;
+    }
+    
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fdDelete, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
+
+    close(fdDelete);
+    
     deleteStatus = unlink(path);
 
     if (!deleteStatus)
@@ -788,16 +1081,44 @@ bool deleteJointUser(int sd)
     char path[16] = "jointusers/";
     char name[11];
     int deleteStatus;
+    int fdDelete;
+    int lockStatus;
 
     read(sd, mobileNumber, sizeof(mobileNumber));
 
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name[i], "%d", mobileNumber[i]);
-    }
+    arrayToString(mobileNumber, name);
 
     strcat(path, name);
+
+    fdDelete= open(path, O_RDWR);
+    
+    if(fdDelete== -1){
+        lockStatus= 0;
+        write(sd, &lockStatus, sizeof(lockStatus));
+        return false;
+    }
+    
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fdDelete, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
+
+    close(fdDelete);
+
     deleteStatus = unlink(path);
 
     if (!deleteStatus)
@@ -812,7 +1133,8 @@ bool deleteJointUser(int sd)
     }
 }
 
-bool modifyNormalUser(int sd){
+bool modifyNormalUser(int sd)
+{
     struct normalUser newCurrentUser;
     struct normalUser oldCurrentUser;
     int mobileNumber[10];
@@ -820,57 +1142,68 @@ bool modifyNormalUser(int sd){
     char path1[16] = "normalusers/";
     char name[11];
     char name2[11];
+    int lockStatus;
 
     read(sd, mobileNumber, sizeof(mobileNumber));
-    read(sd, &newCurrentUser, sizeof(newCurrentUser));
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name[i], "%d", mobileNumber[i]);
-    }
+
+    arrayToString(mobileNumber, name);
 
     strcat(path1, name);
 
-    fdModify= open(path1, O_RDWR);
-    
-    if(fdModify== -1){
+    fdModify = open(path1, O_RDWR);
+
+
+    if (fdModify == -1)
+    {
+        lockStatus= 0;
+        write(sd, &lockStatus, sizeof(lockStatus));
         write(1, "File does not exist\n", sizeof("File does not exist"));
         return false;
     }
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fdModify, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
 
     lseek(fdModify, 0L, SEEK_SET);
 
     read(fdModify, &oldCurrentUser, sizeof(oldCurrentUser));
-    for(int i= 0; i< 4; i++){
-        printf(" %d", newCurrentUser.pin[i]);
-    }
+
     close(fdModify);
     unlink(path1);
     
-    for(int i= 0; i< 4; i++){
-        newCurrentUser.pin[i]= oldCurrentUser.pin[i];
-    }
-    
-    newCurrentUser.balance= oldCurrentUser.balance;
+    read(sd, &newCurrentUser, sizeof(newCurrentUser));
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 4; i++)
     {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name2[i], "%d", newCurrentUser.mobileNumber[i]);
+        newCurrentUser.pin[i] = oldCurrentUser.pin[i];
     }
+
+    newCurrentUser.balance = oldCurrentUser.balance;
+
+    arrayToString(newCurrentUser.mobileNumber, name2);
 
     char path2[16] = "normalusers/";
-    for(int i= 0; i< 4; i++){
-        printf(" %d", oldCurrentUser.pin[i]);
-    }
-    for(int i= 0; i< 4; i++){
-        printf(" %d", newCurrentUser.pin[i]);
-    }
-    
+
     strcat(path2, name2);
-    
-    fdModify= open(path2, O_RDWR| O_CREAT| O_EXCL, 0744);
-    if(fdModify== -1){
+
+    fdModify = open(path2, O_RDWR | O_CREAT | O_EXCL, 0744);
+    if (fdModify == -1)
+    {
         write(1, "File with new mobile number already exists", sizeof("File with new mobile number already exists"));
         return false;
     }
@@ -879,7 +1212,8 @@ bool modifyNormalUser(int sd){
     return true;
 }
 
-bool modifyJointUser(int sd){
+bool modifyJointUser(int sd)
+{
     struct jointUser newCurrentUser;
     struct jointUser oldCurrentUser;
     int mobileNumber[10];
@@ -887,59 +1221,68 @@ bool modifyJointUser(int sd){
     char path1[16] = "jointusers/";
     char name[11];
     char name2[11];
+    int lockStatus;
 
     read(sd, mobileNumber, sizeof(mobileNumber));
-    read(sd, &newCurrentUser, sizeof(newCurrentUser));
-    for (int i = 0; i < 10; i++)
-    {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name[i], "%d", mobileNumber[i]);
-    }
+    
+    arrayToString(mobileNumber, name);
 
     strcat(path1, name);
 
-    fdModify= open(path1, O_RDWR);
-    
-    if(fdModify== -1){
+    fdModify = open(path1, O_RDWR);
+
+    if (fdModify == -1)
+    {
+        lockStatus= 0;
+        write(sd, &lockStatus, sizeof(lockStatus));
         write(1, "File does not exist\n", sizeof("File does not exist"));
         return false;
     }
 
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    write(1, "Checking if other user is doing any transaction\n", sizeof("Checking if other user is doing any transaction\n"));
+    lockStatus = fcntl(fdModify, F_SETLK, &lock);
+
+    write(sd, &lockStatus, sizeof(lockStatus));
+
+    if (lockStatus == -1)
+    {
+        write(1, "File locked\n", sizeof("File locked\n"));
+        return false;
+    }
+
+    write(1, "Ready for transaction \n", sizeof("Ready for transaction \n"));
+
     lseek(fdModify, 0L, SEEK_SET);
 
     read(fdModify, &oldCurrentUser, sizeof(oldCurrentUser));
-    
-    for(int i= 0; i< 4; i++){
-        printf(" %d", newCurrentUser.pin[i]);
-    }
-    
+
     close(fdModify);
     unlink(path1);
-    
-    for(int i= 0; i< 4; i++){
-        newCurrentUser.pin[i]= oldCurrentUser.pin[i];
-    }
-    
-    newCurrentUser.balance= oldCurrentUser.balance;
 
-    for (int i = 0; i < 10; i++)
+    read(sd, &newCurrentUser, sizeof(newCurrentUser));
+
+    for (int i = 0; i < 4; i++)
     {
-        // sprintf will store the integers as a string in buffer fileName
-        sprintf(&name2[i], "%d", newCurrentUser.mobileNumber[i]);
+        newCurrentUser.pin[i] = oldCurrentUser.pin[i];
     }
+
+    newCurrentUser.balance = oldCurrentUser.balance;
+
+    arrayToString(newCurrentUser.mobileNumber, name2);
 
     char path2[16] = "jointusers/";
-    for(int i= 0; i< 4; i++){
-        printf(" %d", oldCurrentUser.pin[i]);
-    }
-    for(int i= 0; i< 4; i++){
-        printf(" %d", newCurrentUser.pin[i]);
-    }
-    
+
     strcat(path2, name2);
-    
-    fdModify= open(path2, O_RDWR| O_CREAT| O_EXCL, 0744);
-    if(fdModify== -1){
+
+    fdModify = open(path2, O_RDWR | O_CREAT | O_EXCL, 0744);
+    if (fdModify == -1)
+    {
         write(1, "File with new mobile number already exists", sizeof("File with new mobile number already exists"));
         return false;
     }
@@ -959,6 +1302,15 @@ int compareArrays(int arr1[], int arr2[], int length)
         }
     }
     return 1;
+}
+
+void arrayToString(int arr[], char name[])
+{
+    for (int i = 0; i < 10; i++)
+    {
+        // sprintf will store the integers as a string in buffer fileName
+        sprintf(&name[i], "%d", arr[i]);
+    }
 }
 
 int main(void)
@@ -1015,7 +1367,10 @@ int main(void)
         {
 
             close(sd);
+            write(1, "Connection successful\n", sizeof("Connection successful\n"));
             serverTasks(nsd);
+            write(1, "\nConnection Terminated", sizeof("\nConnection Terminated"));
+            close(nsd);
             exit(0);
         }
 
